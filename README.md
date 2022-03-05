@@ -39,7 +39,7 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 
 
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/26036843/156767511-f8817a78-b78b-4363-9f2c-edff0fc0d82f.png" width="900"><br>
+  <img src="https://user-images.githubusercontent.com/26036843/156874794-7f0d5099-c89a-40ba-953b-27d19fcb6b85.png" width="900"><br>
   <b>Visualization of loss landscapes of sub-networks searched by various filter importance scoring algorithms.</b>
 </p>
 
@@ -49,7 +49,7 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 </p>
 
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/26036843/156768007-1d1a5d04-d536-4185-a81e-28a080296783.png" width="900"><br>
+  <img src="https://user-images.githubusercontent.com/26036843/156874806-1f51190f-9e78-4f27-864c-13ffa3788b2d.png" width="900"><br>
   <b>Performance analysis in case of ResNet-50 trained on ImageNet-2012. The left plot is the FLOPs reduction rate-Top-1 accuracy, and the right plot is the GPU hours-Top-1 accuracy.</b>
 </p>
 
