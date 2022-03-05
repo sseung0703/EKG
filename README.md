@@ -1,7 +1,4 @@
-## Introduction
-- This is the training and evaluation code for our work "Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning".
-- Currently, the training code for ResNet for CIFAR is available.
-
+# Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning
 ## Paper abstract
 Conventional NAS-based pruning algorithms aim to find the sub-network with the best validation performance. However, validation performance does not successfully represent test performance, i.e., potential performance. Also, although fine-tuning the pruned network to restore the performance drop is an inevitable process, few studies have handled this issue. This paper proposes a novel sub-network search and fine-tuning method, i.e., Ensemble Knowledge Guidance (EKG). First, we experimentally prove that the fluctuation of the loss landscape is an effective metric to evaluate the potential performance. In order to search a sub-network with the smoothest loss landscape at a low cost, we propose a pseudo-supernet built by an ensemble sub-network knowledge distillation. Next, we propose a novel fine-tuning that re-uses the information of the search phase. We store the interim sub-networks, that is, the by-products of the search phase, and transfer their knowledge into the pruned network. Note that EKG is easy to be plugged-in and computationally efficient. For example, in the case of ResNet-50, about 45\% of FLOPS is removed without any performance drop in only 315 GPU hours.
 
@@ -10,8 +7,17 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
   <b>Conceptual visualization of the goal of the proposed method.</b>  
 </p>
 
+## Contribution points and key features
+- As a new tool to measure the potential performance of sub-network in NAS-based pruning, the smoothness of the loss landscape is presented. Also, the experimental evidence that the loss landscape fluctuation has a higher correlation with the test performance than the validation performance is provided.
+- The pseudo-supernet based on an ensemble sub-network knowledge distillation is proposed to find a sub-network of smoother loss landscape without increasing complexity. It helps NAS-based pruning to prune all pre-trained networks, and also allows to find optimal sub-network(s) more accurately.
+- To our knowledge, this paper provides the world-first approach to store the information of the search phase in a memory bank and to reuse it in the fine-tuning phase of the pruned network. The proposed memory bank contributes to greatly improving the performance of the pruned network.
+<br/>
+<br/>
+- Supernet-based filter pruning code based on Tensorflow2
+- XLA (JIT) compiling with multi-gpu
+
 ## Requirement
-- Tensorflow >= 2.6 (we have tested on 2.6 and 2.7)
+- Tensorflow >= 2.6 (I have tested on 2.6-2.8)
 - Pickle
 - tqdm  
 
@@ -21,7 +27,6 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 3. Download our models at "https://drive.google.com/drive/folders/1cUf8Oe_XEoGVZZ7c1SRzhfnByl47R4cW?usp=sharing".
 4. Move to the codebase.
 5. Train and evaluate our model by the below command.
-
 ```
   # ResNet-56 on CIFAR10
   python train_cifar.py --gpu_id 0 --arch ResNet-56 --dataset CIFAR10 --target_rate 0.45 --train_path ../test
