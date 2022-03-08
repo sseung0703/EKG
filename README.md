@@ -1,4 +1,8 @@
 # Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning
+Official Tensorflow implementation of paper:
+
+Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning [[paper link](https://arxiv.org/abs/2203.02651)]
+
 ## Paper abstract
 Conventional NAS-based pruning algorithms aim to find the sub-network with the best validation performance. However, validation performance does not successfully represent test performance, i.e., potential performance. Also, although fine-tuning the pruned network to restore the performance drop is an inevitable process, few studies have handled this issue. This paper proposes a novel sub-network search and fine-tuning method, i.e., Ensemble Knowledge Guidance (EKG). First, we experimentally prove that the fluctuation of the loss landscape is an effective metric to evaluate the potential performance. In order to search a sub-network with the smoothest loss landscape at a low cost, we propose a pseudo-supernet built by an ensemble sub-network knowledge distillation. Next, we propose a novel fine-tuning that re-uses the information of the search phase. We store the interim sub-networks, that is, the by-products of the search phase, and transfer their knowledge into the pruned network. Note that EKG is easy to be plugged-in and computationally efficient. For example, in the case of ResNet-50, about 45\% of FLOPS is removed without any performance drop in only 315 GPU hours.
 
@@ -60,8 +64,11 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 
 ## Reference
 ```
-@software{will_be_anounced,
-  author = {Seunghyun Lee, Byun Cheol Song},
-  title = {Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning,
+@article{lee2022ensemble,
+	title        = {Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning},
+	author       = {Seunghyun Lee, Byung Cheol Song},
+	year         = 2022,
+	journal      = {arXiv preprint arXiv:2203.02651}
 }
+
 ```
