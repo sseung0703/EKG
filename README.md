@@ -19,8 +19,8 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 
 - Supernet-based filter pruning code based on Tensorflow2
 - Custom training loop with XLA (JIT) compiling<br/>
-  + distributed learning<br/>
-  + and gradients accumulator
+  + distributed learning (see [`op_utils.py`](op_utils.py) and [`dataloader`](dataloader))    <br/>
+  + and gradients accumulator (see [`op_utils.py`](op_utils.py) and [`utils/accumulator`](https://github.com/sseung0703/EKG/blob/8f980e143d1253e013b9edfaf267b69dc9ba549a/utils.py#L135-L157) )
 
 ## Requirement
 - Tensorflow >= 2.6 (I have tested on 2.6-2.8)
