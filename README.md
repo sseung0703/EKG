@@ -18,7 +18,7 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 <br/>
 <br/>
 - Supernet-based filter pruning code based on Tensorflow2
-- XLA (JIT) compiling with multi-gpu
+- XLA (JIT) compiling with multi-gpu and gradients accumulator
 
 ## Requirement
 - Tensorflow >= 2.6 (I have tested on 2.6-2.8)
@@ -26,18 +26,12 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 - tqdm  
 
 ## How to run
-1. Download Imagenet-2012 validation set at "http://www.image-net.org/challenges/LSVRC/2012/downloads".
-2. Unzip the dataset to "DATA_HOME/val".
-3. Download our models at "https://drive.google.com/drive/folders/1cUf8Oe_XEoGVZZ7c1SRzhfnByl47R4cW?usp=sharing".
-4. Move to the codebase.
-5. Train and evaluate our model by the below command.
+1. Move to the codebase.
+2. Train and evaluate our model by the below command.
 ```
   # ResNet-56 on CIFAR10
   python train_cifar.py --gpu_id 0 --arch ResNet-56 --dataset CIFAR10 --target_rate 0.45 --train_path ../test
   python test.py --gpu_id 0 --arch ResNet-56 --dataset CIFAR10 --trained_param ../test/trained_param.pkl
-
-  # ResNet-family on ImageNet
-  python test.py --gpu_id 0 --arch ResNet-{18,34,50} --dataset ILSVRC --trained_param $DOWNLOADED_PARAMS$
 ```
 
 ## Experimental results
