@@ -16,9 +16,11 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 - The pseudo-supernet based on an ensemble sub-network knowledge distillation is proposed to find a sub-network of smoother loss landscape without increasing complexity. It helps NAS-based pruning to prune all pre-trained networks, and also allows to find optimal sub-network(s) more accurately.
 - To our knowledge, this paper provides the world-first approach to store the information of the search phase in a memory bank and to reuse it in the fine-tuning phase of the pruned network. The proposed memory bank contributes to greatly improving the performance of the pruned network.
 <br/>
-<br/>
+
 - Supernet-based filter pruning code based on Tensorflow2
-- XLA (JIT) compiling with multi-gpu and gradients accumulator
+- Custom training loop with XLA (JIT) compiling<br/>
+  + distributed learning<br/>
+  + and gradients accumulator
 
 ## Requirement
 - Tensorflow >= 2.6 (I have tested on 2.6-2.8)
