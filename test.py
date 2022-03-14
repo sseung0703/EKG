@@ -1,10 +1,9 @@
-import os
+import os, argparse
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-import argparse
 import tensorflow as tf
 
-from dataloader import ILSVRC, CIFAR
+from dataloader import CIFAR
 import utils
 
 home_path = os.path.dirname(os.path.abspath(__file__))
@@ -15,7 +14,7 @@ parser.add_argument("--dataset", default='CIFAR10', type=str)
 
 parser.add_argument("--val_batch_size", default=256, type=int)
 parser.add_argument("--trained_param", type=str)
-parser.add_argument("--data_path", type=str, help = 'home directory of ILSVRC2012')
+parser.add_argument("--data_path", type=str)
 
 parser.add_argument("--gpu_id", default= [0], type=int, nargs = '+')
 parser.add_argument("--compile", default = True, action = 'store_true')
@@ -33,10 +32,7 @@ if __name__ == '__main__':
     strategy = tf.distribute.MirroredStrategy(devices, cross_device_ops=tf.distribute.HierarchicalCopyAllReduce())
 
     with strategy.scope():
-        if args.dataset == 'ILSVRC':
-            datasets = ILSVRC.build_dataset_providers(args, strategy, test_only = True)
-        elif 'CIFAR' in args.dataset:
-            datasets = CIFAR.build_dataset_providers(args, strategy, test_only = True)
+        datasets = CIFAR.build_dataset_providers(args, strategy, test_only = True)
 
         model = utils.load_model(args, args.num_classes, args.trained_param)
 
@@ -47,7 +43,7 @@ if __name__ == '__main__':
 
         @tf.function(experimental_compile = args.compile)
         def test_step(images, labels):
-            pred = model(images, training = False)
+            pred = model(images, training = True)
             loss = loss_object(labels, pred)/args.val_batch_size
             loss_accum.update_state(loss)
             top1_accuracy.update_state(labels, pred)
@@ -67,4 +63,4 @@ if __name__ == '__main__':
         top5_accuracy.reset_states()
         print ('Test loss: %.4f, Test ACC. Top-1: %.4f, Top-5: %.4f'%(loss, top1_acc, top5_acc))
         p, f = utils.check_complexity(model, args)
-        print (p/1e6, f/1e9)
+        print ('Params: %.2f'%(p/1e6), 'FLOPS: %.2f'%(f/1e6))

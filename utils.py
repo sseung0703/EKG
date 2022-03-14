@@ -1,28 +1,20 @@
-import os, shutil, pickle, json
+import os, shutil, pickle, json, math
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+from collections import OrderedDict
 
 import numpy as np
 import tensorflow as tf
-tf.debugging.set_log_device_placement(False)
 
 from nets import ResNet
 
-def scheduler(args, step):
-    epoch = step//args.iter_len['train']
-    lr = args.learning_rate
+def scheduler(learning_rate, epoch, decay_points, decay_rate):
+    lr = learning_rate
 
-    for dp in args.decay_points:
+    for dp in decay_points:
         if epoch >= dp:
-            lr *= args.decay_rate
+            lr *= decay_rate
 
     return lr
-
-def sorted_idx(x, reverse = False):
-    x = np.where(x == 0, x - 1e12, x)
-    order = np.lexsort((np.arange(x.shape[0]), np.lexsort((np.arange(x.shape[0]), x))))
-    if reverse:
-        order = order.shape - order - 1
-    return order
 
 def save_code_and_augments(args):
     if os.path.isdir(args.train_path): 
@@ -39,16 +31,17 @@ def save_code_and_augments(args):
 
     if os.path.isfile(os.path.join(args.train_path, 'arguments.txt')):
         with open(os.path.join(args.train_path, 'arguments.txt')) as json_file:
-            args_prev = json.load(json_file)
+            args_prev = json.load(json_file, object_pairs_hook=OrderedDict)
 
-        args = args.__dict__
-        keys = list(set(args) | set(args_prev))
-        args = {k: args[k] if k in args else args_prev[k] for k in keys}
+        args = OrderedDict(args.__dict__)
+        for a, v in args.items():
+            if a not in args_prev:
+                args[a] = v
         with open(os.path.join(args['train_path'], 'arguments.txt'), 'w') as f:
-            json.dump(args, f, indent=2)
+            json.dump(OrderedDict(args), f, indent=2)
     else:
         with open(os.path.join(args.train_path, 'arguments.txt'), 'w') as f:
-            json.dump(args.__dict__, f, indent=2)
+            json.dump(OrderedDict(args.__dict__), f, indent=2)
 
 class Evaluation:
     def __init__(self, args, model, strategy, dataset, loss_object):
@@ -83,8 +76,9 @@ class Evaluation:
         return acc, loss
 
 def load_model(args, num_class, trained_param = None):
-    arch = int(args.arch.split('-')[1])
-    model = ResNet.Model(args, num_layers = arch, num_class = num_class, name = 'ResNet', trainable = True)
+    if 'ResNet' in args.arch:
+        arch = int(args.arch.split('-')[1])
+        model = ResNet.Model(args, num_layers = arch, num_class = num_class, name = 'ResNet', trainable = True)
 
     if trained_param is not None:
         with open(trained_param, 'rb') as f:
@@ -124,7 +118,7 @@ def assign_param(model, trained):
 def save_model(args, model, name):
     params = {}
     for v in model.variables:
-        if model.name in v.name and 'dummy' not in v.name:
+        if model.name in v.name:
             params[v.name[len(model.name)+1:]] = v.numpy()
     with open(os.path.join(args.train_path, name + '.pkl'), 'wb') as f:
         pickle.dump(params, f)
@@ -133,16 +127,31 @@ def check_complexity(model, args):
     model(np.zeros([1]+args.input_size, dtype=np.float32), training = False)
     total_params = []
     total_flops = []
-    for k in model.Layers.keys():
-        layer = model.Layers[k]
-        if hasattr(layer, 'params'):
-            p = layer.params
-            if isinstance(p, tf.Tensor):
-                p = p.numpy()
-            total_params.append(p)
-        if hasattr(layer, 'flops'):
-            f = layer.flops
-            if isinstance(f, tf.Tensor):
-                f = f.numpy()
-            total_flops.append(f)
-    return sum(total_params), sum(total_flops)
+
+    total_flops = sum([np.mean(layer.flops.numpy()) for _, layer in model.Layers.items() if hasattr(layer, 'flops')])
+    total_params = sum([np.mean(layer.params.numpy()) for _, layer in model.Layers.items() if hasattr(layer, 'params')])
+    return total_params, total_flops
+
+def accumulator(batch_size, accum_num, num_gpu, graph, inputs, outputs):
+    b = batch_size // accum_num // num_gpu
+    indices = tf.expand_dims(tf.range(batch_size//num_gpu), -1)
+    
+    i = tf.constant(0)
+    c = lambda i, *o : (tf.less(i, accum_num))
+    def accum_loop(i, *outputs):
+        def mapper(X):
+            if X.shape[0] == batch_size//num_gpu:
+                return tf.slice(X, [b*i]+[0]*(len(X.shape)-1), [b, *X.shape[1:]] )
+            else:
+                return X
+        input_split = [[mapper(x) for x in X] if isinstance(X, list) else mapper(X) for X in inputs]
+
+        o = graph(*input_split)
+
+        def mapper(X, x):
+            if X.shape == x.shape:
+                return X + x
+            else:
+                return tf.tensor_scatter_nd_update(X, tf.slice(indices, [b*i,0],[b,1]), x)
+        return (i+1, *[ [mapper(*o__) for o__ in zip(*o_) ] if isinstance(o_[0], list) else mapper(*o_)  for o_ in zip(outputs, o)])
+    return tf.while_loop(c, accum_loop, [i, *outputs])[1:]

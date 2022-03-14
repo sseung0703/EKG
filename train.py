@@ -10,29 +10,26 @@ import op_utils, utils
 
 parser = argparse.ArgumentParser(description='')
 
-parser.add_argument("--train_path", default="test", type=str, help = 'abc')
-parser.add_argument("--data_path", type=str, help = 'home directory of ILSVRC2012')
+parser.add_argument("--train_path", default="../test", type=str, help = 'abc')
+parser.add_argument("--data_path", type=str)
 parser.add_argument("--arch", default='ResNet-56', type=str)
 parser.add_argument("--dataset", default='CIFAR10', type=str)
+parser.add_argument("--trained_param", default = 'pretrained/res56_cifar10.pkl', type=str)
 
-parser.add_argument("--learning_rate", default = 1e-1, type=float)
-parser.add_argument("--decay_points", default = [.3, .6, .8], type=float, nargs = '+')
-parser.add_argument("--decay_rate", default=.2, type=float)
-parser.add_argument("--weight_decay", default=5e-4, type=float)
-parser.add_argument("--batch_size", default = 128, type=int)
-parser.add_argument("--val_batch_size", default=256, type=int)
-parser.add_argument("--train_epoch", default=200, type=int)
-
-parser.add_argument("--pruning", default=False, action = 'store_true')
-parser.add_argument("--trained_param", type=str)
-parser.add_argument("--target_rate", default=.6, type=float)
-parser.add_argument("--search_step", default=.2, type=float)
-parser.add_argument("--minimum_rate", default=.0, type=float)
-parser.add_argument("--num_teacher", default=5, type=int)
 parser.add_argument("--Knowledge", default=False, action = 'store_true')
+parser.add_argument("--num_teacher", default=5, type=int)
 
+parser.add_argument("--learning_rate", default = 5e-2, type=float)
+parser.add_argument("--decay_points", default = [.3, .6, .9], type=float, nargs = '+')
+parser.add_argument("--decay_rate", default=.1, type=float)
+parser.add_argument("--weight_decay", default=1e-4, type=float)
+parser.add_argument("--batch_size", default = 256, type=int)
 parser.add_argument("--seed", default=0, type=int)
+parser.add_argument("--val_batch_size", default=250, type=int)
+parser.add_argument("--train_epoch", default=100, type=int)
+
 parser.add_argument("--gpu_id", default= [0], type=int, nargs = '+')
+parser.add_argument("--accum", default=1, type=int)
 parser.add_argument("--do_log", default=200, type=int)
 parser.add_argument("--compile", default=True, action = 'store_true')
 parser.add_argument("--setting", default=None, type=str)
@@ -71,7 +68,7 @@ if __name__ == '__main__':
             for step, data in enumerate(datasets['train']):
                 epoch = step//args.iter_len['train']
 
-                lr = utils.scheduler(args, step)
+                lr = utils.scheduler(args.learning_rate, epoch, args.decay_points, args.decay_rate)
                 optimizer.learning_rate = lr
 
                 step += 1

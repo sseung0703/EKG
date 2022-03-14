@@ -1,10 +1,6 @@
 import tensorflow as tf
 import numpy as np
 
-def Proposed(x, dx):
-    dkernel = tf.abs( tf.reduce_sum( x * dx, [0,1,2] ) )
-    return dkernel
-
 class Conv2d(tf.keras.layers.Layer):
     def __init__(self, kernel_size, num_outputs, strides = 1, dilations = 1, padding = 'SAME',
                  kernel_initializer = tf.keras.initializers.VarianceScaling(scale = 2., mode='fan_out'),
@@ -13,8 +9,6 @@ class Conv2d(tf.keras.layers.Layer):
                  activation_fn = None,
                  name = 'conv',
                  trainable = True,
-                 layertype = 'mid',
-                 keep_feat = False,
                  **kwargs):
         super(Conv2d, self).__init__(name = name, trainable = trainable, **kwargs)
         
@@ -29,10 +23,6 @@ class Conv2d(tf.keras.layers.Layer):
         self.biases_initializer = biases_initializer
         
         self.activation_fn = activation_fn
-
-        self.type = layertype
-        self.keep_feat = keep_feat
-        self.scoring = False
         
     def build(self, input_shape):
         super(Conv2d, self).build(input_shape)
@@ -49,76 +39,107 @@ class Conv2d(tf.keras.layers.Layer):
 
     def call(self, input):
         kernel = self.kernel
-        kh,kw,Di,Do = kernel.shape
+        kh,kw,Di,Do = tf.unstack(tf.cast(tf.shape(kernel), tf.float32))
 
-        if hasattr(self, 'in_depth'):
-            Di = tf.math.ceil(self.ori_shape[2]*self.in_depth)
+        mask = 1
+        if hasattr(self, 'in_mask'):
+            in_mask = self.in_mask.get_mask()
+            Di = tf.reduce_sum(in_mask)
+            mask = mask * tf.reshape(in_mask, [1,1,-1,1])
+            
+        if hasattr(self, 'out_mask'):
+            out_mask = self.out_mask.get_mask()
+            Do = tf.reduce_sum(out_mask)
+            mask = mask * tf.reshape(out_mask, [1,1,1,-1])
+            
+        if isinstance(mask, tf.Tensor):
+            norm = tf.linalg.norm(kernel)
+            kernel =  kernel*mask
+            kernel = tf.linalg.l2_normalize(kernel)*norm
 
-        if hasattr(self, 'out_depth'):
-            Do = tf.math.ceil(self.ori_shape[3]*self.out_depth)
-
-        if not(self.scoring):
-            conv = tf.nn.conv2d(input, kernel, self.strides, self.padding,
-                                dilations=self.dilations, name=None)
-        else:
-            @tf.custom_gradient
-            def scoring(x, kernel):
-                B,H,W,D = x.shape
-                out_mask = tf.cast(tf.less(self.out_mask, Do),tf.float32)
-                out_mask = tf.reshape(out_mask, [1,1,1,-1])
-                in_mask = tf.cast(tf.less(self.in_mask, Di),tf.float32)
-                in_mask = tf.reshape(in_mask, [1,1,-1,1])
-
-                norm = tf.linalg.norm(kernel)
-                kernel =  kernel*in_mask*out_mask
-                kernel = tf.linalg.l2_normalize(kernel)*norm
-
-                y = tf.nn.conv2d(x, kernel, self.strides, self.padding, dilations = self.dilations, name=None)
-
-                def gradient_scoring(dy):
-                    dx = tf.gradients(y, x, dy)[0] * tf.transpose(in_mask, [0,1,3,2])
-                    dkernel = Proposed(x, dx)
-                    return [dx, dkernel]
-                return y, gradient_scoring
-
-            conv = scoring(input, kernel)
-
+        conv = tf.nn.conv2d(input, kernel, self.strides, self.padding,
+                            dilations=self.dilations, name=None)
+        
         if self.use_biases:
             conv += self.biases
 
         if self.activation_fn:
             conv = self.activation_fn(conv)
 
-        H,W = conv.shape[1:3]
+        H,W = tf.unstack(tf.cast(tf.shape(conv), tf.float32))[1:3]
         self.params = kh*kw*Di*Do
         self.flops  = H*W*self.params
         
         if self.use_biases:
             self.params += Do
-        if self.keep_feat:
-            self.feat = conv
+
         return conv
 
-class Dummy(tf.keras.layers.Layer):
-    def __init__(self, name = 'dummy', **kwargs):
-        super(Dummy, self).__init__(name = name, **kwargs)
-        self.get_score = False
-        self.scoring = False
+class DepthwiseConv2d(tf.keras.layers.Layer):
+    def __init__(self, kernel_size, multiplier = 1, strides = [1,1,1,1], dilations = [1,1], padding = 'SAME',
+                 kernel_initializer = tf.keras.initializers.VarianceScaling(scale = 2., mode='fan_in'),
+                 use_biases = True,
+                 biases_initializer = tf.keras.initializers.Zeros(),
+                 activation_fn = None,
+                 name = 'conv',
+                 trainable = True,
+                 **kwargs):
+        super(DepthwiseConv2d, self).__init__(name = name, trainable = trainable, **kwargs)
+        
+        self.kernel_size = kernel_size
+        self.strides = strides if isinstance(strides, list) else [1, strides, strides, 1]
+        self.padding = padding
+        self.dilations = dilations if isinstance(dilations, list) else [dilations, dilations]
+        self.multiplier = multiplier
+        self.kernel_initializer = kernel_initializer
+        
+        self.use_biases = use_biases
+        self.biases_initializer = biases_initializer
+        
+        self.activation_fn = activation_fn
         
     def build(self, input_shape):
-        super(Dummy, self).build(input_shape)
-        self.kernel = self.add_weight(name  = 'kernel', shape = [], trainable = False)
+        super(DepthwiseConv2d, self).build(input_shape)
+        self.kernel = self.add_weight(name  = 'kernel', 
+                                      shape = self.kernel_size + [input_shape[-1], self.multiplier],
+                                      initializer=self.kernel_initializer,
+                                      trainable = self.trainable)
+        if self.use_biases:
+            self.biases  = self.add_weight(name = "biases",
+                                           shape=[1,1,1, input_shape[-1]*self.multiplier],
+                                           initializer = self.biases_initializer,
+                                           trainable = self.trainable)
+        self.ori_shape = self.kernel.shape
 
     def call(self, input):
-        @tf.custom_gradient
-        def scoring(x, kernel):
-            def gradient_scoring(dy):
-                dx = dy
-                dkernel = Proposed(x, dx)
-                return [dx, dkernel]
-            return x, gradient_scoring
-        output = scoring(input, self.kernel)
-        return output
+        kernel = self.kernel
+        kh,kw,Di,Do = kernel.shape
+
+        if hasattr(self, 'in_mask'):
+            in_mask = self.in_mask.get_mask()
+            Di = tf.reduce_sum(in_mask)
+            mask = tf.reshape(in_mask, [1,1,-1,1])
+            
+            norm = tf.linalg.norm(kernel)
+            kernel =  kernel*mask
+            kernel = tf.linalg.l2_normalize(kernel)*norm
+
+        conv = tf.nn.depthwise_conv2d(input, kernel, strides = self.strides, padding = self.padding, dilations=self.dilations)
+
+        if self.use_biases:
+            conv += self.biases
+        if self.activation_fn:
+            conv = self.activation_fn(conv)
+
+        H,W = conv.shape[1:3]
+
+        self.params = kh*kw*Di*Do
+        self.flops  = H*W*self.params
+        
+        if self.use_biases:
+            self.params += Do
+
+        return conv
 
 class FC(tf.keras.layers.Layer):
     def __init__(self, num_outputs, 
@@ -127,7 +148,6 @@ class FC(tf.keras.layers.Layer):
                  biases_initializer  = tf.keras.initializers.Zeros(),
                  activation_fn = None,
                  name = 'fc',
-                 keep_feat = False,
                  trainable = True, **kwargs):
         super(FC, self).__init__(name = name, trainable = trainable, **kwargs)
         self.num_outputs = num_outputs
@@ -137,10 +157,7 @@ class FC(tf.keras.layers.Layer):
         self.biases_initializer = biases_initializer
         
         self.activation_fn = activation_fn
-        
-        self.keep_feat = keep_feat
-        self.scoring = False
-        
+
     def build(self, input_shape):
         super(FC, self).build(input_shape)
         self.kernel = self.add_weight(name  = 'kernel', 
@@ -156,33 +173,19 @@ class FC(tf.keras.layers.Layer):
 
     def call(self, input):
         kernel = self.kernel
-        Di,Do = kernel.shape
+        Di,Do = tf.unstack(tf.cast(tf.shape(kernel), tf.float32))
 
-        if hasattr(self, 'in_depth'):
-            Di = tf.math.ceil(self.ori_shape[0]*self.in_depth)
+        if hasattr(self, 'in_mask'):
+            in_mask = self.in_mask.get_mask()
+            Di = tf.reduce_sum(in_mask)
+            mask = tf.reshape(in_mask, [-1,1])
+            
+            norm = tf.linalg.norm(kernel)
+            kernel =  kernel*mask
+            kernel = tf.linalg.l2_normalize(kernel)*norm
 
-        if not(self.scoring):
-            fc = tf.matmul(input, kernel)
-        else:
-            @tf.custom_gradient
-            def scoring(x, kernel):
-                in_mask = tf.cast(tf.less(self.in_mask, Di),tf.float32)
-                in_mask = tf.reshape(in_mask, [-1,1])
-                
-                norm = tf.linalg.norm(kernel)
-                kernel =  kernel*in_mask
-                kernel = tf.linalg.l2_normalize(kernel)*norm
-
-
-                y = tf.matmul(input, kernel)
-
-                def gradient_scoring(dy):
-                    dx = tf.gradients(y, x, dy)[0]
-                    dkernel = Proposed(x, dx)
-                    return [dx, dkernel]
-                return y, gradient_scoring
-            fc = scoring(input, kernel)
-
+        fc = tf.matmul(input, kernel)
+        
         if self.use_biases:
             fc += self.biases
         if self.activation_fn:
@@ -195,9 +198,7 @@ class FC(tf.keras.layers.Layer):
         
         if self.use_biases:
             self.params += Do
-        if self.keep_feat:
-            self.in_feat = input
-            self.feat = fc
+
         return fc
 
 class BatchNorm(tf.keras.layers.Layer):
@@ -209,7 +210,6 @@ class BatchNorm(tf.keras.layers.Layer):
                        activation_fn = None,
                        name = 'bn',
                        trainable = True,
-                       keep_feat = False,
                        **kwargs):
         super(BatchNorm, self).__init__(name = name, trainable = trainable, **kwargs)
         if param_initializers == None:
@@ -229,8 +229,6 @@ class BatchNorm(tf.keras.layers.Layer):
         self.alpha = alpha
         self.epsilon = epsilon
         self.activation_fn = activation_fn
-        self.keep_feat = keep_feat
-        self.scoring = False
 
     def build(self, input_shape):
         super(BatchNorm, self).build(input_shape)
@@ -244,20 +242,15 @@ class BatchNorm(tf.keras.layers.Layer):
                                       initializer=self.param_initializers['moving_variance'],
                                       aggregation=tf.VariableAggregation.MEAN,
                                       )
-        if self.scale:
-            self.gamma = self.add_weight(name  = 'gamma', 
-                                         shape = [1]*(len(input_shape)-1)+[int(input_shape[-1])],
-                                         initializer=self.param_initializers['gamma'],
-                                         trainable = self.trainable)
-        else:
-            self.gamma = 1.
-        if self.center:
-            self.beta = self.add_weight(name  = 'beta', 
+        self.gamma = self.add_weight(name  = 'gamma', 
                                         shape = [1]*(len(input_shape)-1)+[int(input_shape[-1])],
-                                        initializer=self.param_initializers['beta'],
-                                        trainable = self.trainable)
-        else:
-            self.beta = 0.
+                                        initializer=self.param_initializers['gamma'],
+                                        trainable = self.trainable) if self.scale else 1.
+        self.beta = self.add_weight(name  = 'beta', 
+                                    shape = [1]*(len(input_shape)-1)+[int(input_shape[-1])],
+                                    initializer=self.param_initializers['beta'],
+                                    trainable = self.trainable) if self.center else 0.
+
         self.ori_shape = self.moving_mean.shape[-1]
            
     def EMA(self, variable, value):
@@ -279,40 +272,55 @@ class BatchNorm(tf.keras.layers.Layer):
             var = self.moving_variance
             
         gamma, beta = self.gamma, self.beta
-        Do = self.moving_mean.shape[-1]
+        Do = tf.unstack(tf.cast(tf.shape(self.moving_mean), tf.float32))[-1]
 
-        if hasattr(self, 'out_depth'):
-            Do = tf.math.ceil(self.ori_shape*self.out_depth)
-            out_mask = tf.cast(tf.less(self.out_mask, Do),tf.float32)
-            out_mask = tf.reshape(out_mask, [1]*(len(input.shape)-1)+[-1])
-            gamma = gamma * out_mask
-            beta = beta * out_mask
+        bn = tf.nn.batch_normalization(input, mean, var, offset = beta, scale = gamma, variance_epsilon = self.epsilon)
 
-            if not(self.scoring):
-                bn = tf.nn.batch_normalization(input, mean, var, offset = beta, scale = gamma, variance_epsilon = self.epsilon)
-
-            else:
-                @tf.custom_gradient
-                def scoring(x, mean, var, gamma, beta):
-                    y = tf.nn.batch_normalization(x, mean, var, offset = beta, scale = gamma, variance_epsilon = self.epsilon)
-
-                    def gradient_scoring(dy):
-                        B,H,W,D = dy.shape
-                        dx = tf.gradients(y, x, dy)[0]
-                        dgamma = tf.abs(tf.reduce_sum( y * dy, [0,1,2], keepdims=True))
-                        return [dx, None, None, dgamma, None]
-                    return y, gradient_scoring
-                bn = scoring(input, mean, var, gamma, beta)
-
-        else:
-            bn = tf.nn.batch_normalization(input, mean, var, offset = beta, scale = gamma, variance_epsilon = self.epsilon)
+        if hasattr(self, 'out_mask'):
+            Do = tf.reduce_sum(self.out_mask.get_mask(), -1)
 
         if self.activation_fn:
             bn = self.activation_fn(bn)
+
+        B,*_, D = tf.unstack( tf.cast(tf.shape(bn), tf.float32) )
+        S = tf.cast(tf.size(bn), tf.float32) / B / D
         self.params = Do * (2 + self.scale + self.center)
-        self.flops  = self.params
-        for n in bn.shape[1:-1]:
-            self.flops *= n
-        if self.keep_feat:
-            self.feat = bn
+        self.flops  = S * Do * (1 + self.scale)
+        
         return bn
+
+class scoring_layer(tf.keras.layers.Layer):
+    def __init__(self, shape, name = '', **kwargs):
+        super(scoring_layer, self).__init__(name = name, **kwargs)
+        self.shape = shape
+        self.num_call = 1
+
+        self.score = self.add_weight(name  = 'score', 
+                                 shape = [1,1,1,self.shape],
+                                 initializer=tf.keras.initializers.Zeros(),
+                                 trainable = False)
+
+        self.order = self.add_weight(name  = 'order', 
+                                 shape = [1,1,1,self.shape],
+                                 initializer=tf.keras.initializers.Zeros(),
+                                 trainable = False)
+
+        self.rate = self.add_weight(name  = 'rate',
+                                 shape = [],
+                                 initializer=tf.keras.initializers.Ones(),
+                                 trainable = False)
+
+    def assign_order(self):
+        self.order.assign( tf.cast(tf.argsort(tf.argsort( self.score , direction = 'DESCENDING'), direction = 'ASCENDING'), tf.float32) )
+    
+    def get_mask(self):
+        return tf.cast( self.order < tf.maximum(self.shape * self.rate, 1.) , tf.float32)
+
+    def __call__(self, x):
+        mask = self.get_mask()
+        
+        @tf.custom_gradient
+        def by_pass(x, score):
+            y = x * mask
+            return y, lambda dy : [ dy, tf.abs(tf.reduce_sum(dy * y, [0,1,2], keepdims=True)) ]
+        return by_pass(x, self.score)
