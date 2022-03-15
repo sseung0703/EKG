@@ -1,8 +1,9 @@
 # Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning
-Official Tensorflow implementation of paper:
+This repository is official Tensorflow implementation of paper:
 
 Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning [[paper link](https://arxiv.org/abs/2203.02651)] <br/>
-Tensorflow 2 example code for <br>
+
+and Tensorflow 2 example code for <br>
 &nbsp;&nbsp; "Custom layers", "Custom training loop", "XLA (JIT)-compiling", "Distributed learing", and "Gradients accumulator".
 
 ## Paper abstract
