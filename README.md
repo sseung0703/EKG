@@ -1,7 +1,8 @@
 # Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning
 Official Tensorflow implementation of paper:
 
-Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning [[paper link](https://arxiv.org/abs/2203.02651)]
+Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning [[paper link](https://arxiv.org/abs/2203.02651)] <br/>
+Tensorflow 2 example code for "Custom layers", "Custom training loop", "XLA (JIT)-compiling", "Distributed learing", and "Gradients accumulator".
 
 ## Paper abstract
 Conventional NAS-based pruning algorithms aim to find the sub-network with the best validation performance. However, validation performance does not successfully represent test performance, i.e., potential performance. Also, although fine-tuning the pruned network to restore the performance drop is an inevitable process, few studies have handled this issue. This paper proposes a novel sub-network search and fine-tuning method, i.e., Ensemble Knowledge Guidance (EKG). First, we experimentally prove that the fluctuation of the loss landscape is an effective metric to evaluate the potential performance. In order to search a sub-network with the smoothest loss landscape at a low cost, we propose a pseudo-supernet built by an ensemble sub-network knowledge distillation. Next, we propose a novel fine-tuning that re-uses the information of the search phase. We store the interim sub-networks, that is, the by-products of the search phase, and transfer their knowledge into the pruned network. Note that EKG is easy to be plugged-in and computationally efficient. For example, in the case of ResNet-50, about 45\% of FLOPS is removed without any performance drop in only 315 GPU hours.
@@ -17,10 +18,11 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 - To our knowledge, this paper provides the world-first approach to store the information of the search phase in a memory bank and to reuse it in the fine-tuning phase of the pruned network. The proposed memory bank contributes to greatly improving the performance of the pruned network.
 <br/>
 
-- Supernet-based filter pruning code based on Tensorflow2
-- Custom training loop with XLA (JIT) compiling<br/>
-  + distributed learning (see [`op_utils.py`](op_utils.py) and [`dataloader`](dataloader))    <br/>
-  + and gradients accumulator (see [`op_utils.py`](op_utils.py) and [`utils/accumulator`](https://github.com/sseung0703/EKG/blob/8f980e143d1253e013b9edfaf267b69dc9ba549a/utils.py#L135-L157) )
+- Supernet-based filter pruning code based on Tensorflow2 <br/>
+- Custom layers, e.g., concolution, depthwise convolution, batch normalization (see [`nets/tcl.py`](nets/tcl.py))
+- Custom training loop with XLA (JIT) compiling (see [`op_utils.py`](op_utils.py))
+- distributed learning (see [`op_utils.py`](op_utils.py) and [`dataloader`](dataloader))
+- and gradients accumulator (see [`op_utils.py`](op_utils.py) and [`utils/accumulator`](https://github.com/sseung0703/EKG/blob/8f980e143d1253e013b9edfaf267b69dc9ba549a/utils.py#L135-L157) )
 
 ## Requirement
 - Tensorflow >= 2.6 (I have tested on 2.6-2.8)
