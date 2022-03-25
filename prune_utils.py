@@ -215,21 +215,16 @@ class EKG:
                 tape.watch(self.score_var)
                 score = self.objective(images, labels, K)[-1]
             grad = tape.gradient(score, self.score_var)
-            return grad,
+            return grad
 
         @tf.function(jit_compile = self.args.compile)
-        def compiled_score_step(*data):
-            if self.args.accum < 2:
-                return objective_grad(*data)
-            else:
-                return utils.accumulator(data[0].shape[0], self.args.accum, len(self.args.gpu_id), objective_grad, data, 
-                    [
-                        [tf.zeros_like(v) for v in self.score_var], # gradients
-                    ]
-                )
-
         def score_step(*data):
-            gradients = compiled_score_step(*data)[0]
+            if self.args.accum < 2:
+                gradients = objective_grad(*data)
+            else:
+                gradients = utils.accumulator(data[0].shape[0], self.args.accum, len(self.args.gpu_id), objective_grad, data, 
+                    [tf.zeros_like(v) for v in self.score_var], # gradients                    
+                )
             for s, g in zip(self.score_var, gradients):
                 s.assign_add(g)
 
@@ -259,21 +254,17 @@ class EKG:
         self.acc_accum = tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy')
 
         @tf.function(jit_compile = self.args.compile)
-        def compiled_eval_step(*data):
+        def eval_step(*data):
             if self.args.accum < 2:
-                return self.objective(*data)
+                pred, loss, score = self.objective(*data)
             else:
-                return utils.accumulator(data[0].shape[0], self.args.accum, len(self.args.gpu_id), self.objective, data, 
+                pred, loss, score = utils.accumulator(data[0].shape[0], self.args.accum, len(self.args.gpu_id), self.objective, data, 
                     [
                         tf.zeros([data[0].shape[0], self.args.num_classes]), # pred
                         tf.constant(0.), # loss
                         tf.constant(0.), # score
                     ]
                 )
-
-        def eval_step(*data):
-            pred, loss, score = compiled_eval_step(*data)
-            
             self.acc_accum.update_state(data[1], pred)
             self.loss_accum.update_state(loss)
             self.score_accum.update_state(score)

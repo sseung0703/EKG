@@ -31,57 +31,42 @@ def Optimizer(args, model, strategy):
                 total_loss = tf.add_n([loss_object(labels, tf.gather(preds, i, axis = 1)) + tf.reduce_sum(kld(top2, tf.gather(preds, i, axis = 1))) for i in range(N)])/args.batch_size
 
             gradients = [g/2 for g in tape.gradient(total_loss, model.trainable_variables)]
-            update_vars = [tf.stack(getattr(L, 'update_var', 0.)) for k, L in model.Layers.items() ]
-
+            
             for j in range(2):
                 train_accuracy.update_state(labels, tf.gather(preds,j,axis=1))
 
-            return total_loss, gradients, update_vars
+            return total_loss, gradients
     else:
         def objective(images, labels):
             with tf.GradientTape() as tape:
                 pred = model(images, training = True)
                 total_loss = loss_object(labels, pred)/args.batch_size
             gradients = tape.gradient(total_loss, model.trainable_variables)
-            update_vars = [tf.stack(getattr(L, 'update_var', 0.)) for k, L in model.Layers.items() ]
             train_accuracy.update_state(labels, pred)
-            return total_loss, gradients, update_vars
+            return total_loss, gradients
 
     if args.accum > 1:
         model(np.zeros([1]+args.input_size), training = True)
 
     @tf.function(jit_compile = args.compile)
-    def compiled_step(*data):
+    def train_step(*data):
         if args.accum < 2:
-            total_loss, gradients, update_vars = objective(*data)
+            total_loss, gradients = objective(*data)
         else:
-            total_loss, gradients, update_vars = utils.accumulator(args.batch_size, args.accum, len(args.gpu_id), objective, data, 
+            total_loss, gradients = utils.accumulator( data[0].shape[0], args.accum, len(args.gpu_id), objective, data, 
                 [
                     tf.constant(0.), # loss
                     [tf.zeros_like(v) for v in model.trainable_variables], # gradients
-                    [tf.stack([tf.zeros_like(v) for v in L.update_var]) if hasattr(L, 'update_var') else tf.constant(0.) for k, L in model.Layers.items() ], # moving statistics
                 ]
             )
 
         gradients = [g + v * args.weight_decay / len(args.gpu_id) for g, v in zip(gradients, model.trainable_variables)]
-        update_vars = [tf.unstack(uv/args.accum) if uv.shape != [] else uv for uv in update_vars]
-
-        return total_loss, gradients, update_vars
-
-    def train_step(*data):
-        total_loss, gradients, update_vars = compiled_step(*data)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        
-        for (_, layer), v in zip(model.Layers.items(), update_vars):
-            if hasattr(layer, 'update'):
-                layer.update(v)
         
         train_loss.update_state(total_loss)
         
     @tf.function
     def train_step_dist(*data):
         strategy.run(train_step, args= (data))
-        lr = optimizer._decayed_lr(var_dtype = tf.float32)
-        return lr 
 
     return train_step_dist, train_loss, train_accuracy, optimizer

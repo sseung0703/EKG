@@ -257,15 +257,15 @@ class BatchNorm(tf.keras.layers.Layer):
         update_delta = (variable - value) * (1-self.alpha)
         variable.assign_sub(update_delta)
 
-    def update(self, update_var):
-        mean, var = update_var
+    def update(self, mean, var):
         self.EMA(self.moving_mean, mean)
         self.EMA(self.moving_variance, var)
         
     def call(self, input, training=None):
         if training:
             mean, var = tf.nn.moments(input, list(range(len(input.shape)-1)), keepdims=True)
-            self.update_var = [mean, var]
+            if not( hasattr(self, 'out_mask')):
+                self.update(mean, var)
         
         else:
             mean = self.moving_mean

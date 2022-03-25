@@ -133,14 +133,14 @@ def check_complexity(model, args):
     return total_params, total_flops
 
 def accumulator(batch_size, accum_num, num_gpu, graph, inputs, outputs):
-    b = batch_size // accum_num // num_gpu
-    indices = tf.expand_dims(tf.range(batch_size//num_gpu), -1)
+    b = batch_size // accum_num
+    indices = tf.expand_dims(tf.range(batch_size), -1)
     
     i = tf.constant(0)
     c = lambda i, *o : (tf.less(i, accum_num))
     def accum_loop(i, *outputs):
         def mapper(X):
-            if X.shape[0] == batch_size//num_gpu:
+            if X.shape[0] == batch_size:
                 return tf.slice(X, [b*i]+[0]*(len(X.shape)-1), [b, *X.shape[1:]] )
             else:
                 return X

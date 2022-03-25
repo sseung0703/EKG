@@ -170,11 +170,8 @@ def build_memory_bank(args, model, strategy, History, order_rate_var):
     train_ds = strategy.experimental_distribute_dataset(train_ds)
 
     @tf.function(experimental_compile = args.compile)
-    def compiled_step(images):
-        return model(images, training = True)
-
     def eval_step(images):
-        return compiled_step(images)
+        return model(images, training = True)
 
     def eval_step_dist(images):
         pred = strategy.run(eval_step, args=(images,))

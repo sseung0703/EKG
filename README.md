@@ -65,10 +65,10 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 ## Reference
 ```
 @article{lee2022ensemble,
-	title        = {Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning},
-	author       = {Seunghyun Lee, Byung Cheol Song},
-	year         = 2022,
-	journal      = {arXiv preprint arXiv:2203.02651}
+  title        = {Ensemble Knowledge Guided Sub-network Search and Fine-tuning for Filter Pruning},
+  author       = {Seunghyun Lee, Byung Cheol Song},
+  year         = 2022,
+  journal      = {arXiv preprint arXiv:2203.02651}
 }
 
 ```
