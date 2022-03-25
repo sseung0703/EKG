@@ -27,7 +27,7 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 - and gradients accumulator (see [`op_utils.py`](op_utils.py) and [`utils/accumulator`](https://github.com/sseung0703/EKG/blob/8f980e143d1253e013b9edfaf267b69dc9ba549a/utils.py#L135-L157) )
 
 ## Requirement
-- Tensorflow >= 2.7 (I have tested on 2.6-2.8)
+- Tensorflow >= 2.7 (I have tested on 2.7-2.8)
 - Pickle
 - tqdm
 
