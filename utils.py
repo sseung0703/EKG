@@ -140,7 +140,7 @@ def accumulator(batch_size, accum_num, num_gpu, graph, inputs, outputs):
     c = lambda i, *o : (tf.less(i, accum_num))
     def accum_loop(i, *outputs):
         def mapper(X):
-            if X.shape[0] == batch_size:
+            if X.shape[0] == b:
                 return tf.slice(X, [b*i]+[0]*(len(X.shape)-1), [b, *X.shape[1:]] )
             else:
                 return X
