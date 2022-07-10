@@ -42,7 +42,7 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 
 ## Experimental results
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/26036843/156766180-b67a859d-88eb-4742-b76d-be6e3810fa96.png" width="900"><br>
+  <img src="https://user-images.githubusercontent.com/26036843/178147853-d1b55959-9c28-4fd1-ac28-e01842b0693b.jpg" width="900"><br>
   <b>(Left) Potential performance vs. validation loss (right) Potential performance vs. condition number. 50 sub-networks of ResNet-56 trained on CIFAR10 were used for this experiment. accurately.</b>
 </p>
 
@@ -58,7 +58,7 @@ Conventional NAS-based pruning algorithms aim to find the sub-network with the b
 </p>
 
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/26036843/156874806-1f51190f-9e78-4f27-864c-13ffa3788b2d.png" width="900"><br>
+  <img src="https://user-images.githubusercontent.com/26036843/178147880-c258e4a1-30b8-4b04-a9a9-b92e5167b320.jpg" width="900"><br>
   <b>Performance analysis in case of ResNet-50 trained on ImageNet-2012. The left plot is the FLOPs reduction rate-Top-1 accuracy, and the right plot is the GPU hours-Top-1 accuracy.</b>
 </p>
 
